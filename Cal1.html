@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เครื่องคิดเลข</title>
+<style>
+  :root{
+    --bg:#f2f2f2;
+    --calc-bg:#ffffff;
+    --display-bg:#ffffff;
+    --display-fg:#1a1a1a;
+    --num-bg:#f5f5f5;
+    --num-bg-hover:#e8e8e8;
+    --num-fg:#1a1a1a;
+    --op-bg:#ff9500;
+    --op-fg:#ffffff;
+    --op-bg-hover:#ffab33;
+    --equal-bg:#ff9500;
+    --equal-fg:#ffffff;
+    --clear-bg:#d4d4d4;
+    --clear-fg:#1a1a1a;
+    --border:#e0e0e0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    min-height:100vh;
+    background:var(--bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:-apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+    padding:20px;
+  }
+
+  .calculator{
+    width:320px;
+    max-width:100%;
+    background:var(--calc-bg);
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.12);
+    padding:20px;
+    border:1px solid var(--border);
+  }
+
+  .display{
+    background:var(--display-bg);
+    padding:30px 10px 15px;
+    text-align:right;
+    margin-bottom:16px;
+  }
+  .display .expr-preview{
+    color:#999999;
+    font-size:14px;
+    min-height:18px;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+  .display .current{
+    color:var(--display-fg);
+    font-size:44px;
+    font-weight:400;
+    overflow-x:auto;
+    white-space:nowrap;
+    line-height:1.2;
+  }
+
+  .keys{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+  }
+  .key{
+    border:none;
+    border-radius:50%;
+    padding:0;
+    aspect-ratio:1;
+    font-size:20px;
+    font-weight:500;
+    font-family:inherit;
+    cursor:pointer;
+    background:var(--num-bg);
+    color:var(--num-fg);
+    transition: background 0.1s ease, transform 0.05s ease;
+  }
+  .key:hover{ background:var(--num-bg-hover); }
+  .key:active{ transform: scale(0.95); }
+
+  .key.clear{ background:var(--clear-bg); color:var(--clear-fg); }
+  .key.clear:hover{ background:#c7c7c7; }
+
+  .key.op{ background:var(--op-bg); color:var(--op-fg); font-size:22px; }
+  .key.op:hover{ background:var(--op-bg-hover); }
+
+  .key.equal{ background:var(--equal-bg); color:var(--equal-fg); font-size:22px; }
+  .key.equal:hover{ background:var(--op-bg-hover); }
+
+  .key.zero{
+    grid-column: span 2;
+    border-radius:30px;
+    aspect-ratio:auto;
+    padding:16px 0;
+  }
+</style>
+</head>
+<body>
+  <div class="calculator">
+    <div class="display">
+      <div class="expr-preview" id="exprPreview">&nbsp;</div>
+      <div class="current" id="current">0</div>
+    </div>
+
+    <div class="keys">
+      <button class="key clear" onclick="clearAll()">C</button>
+      <button class="key clear" onclick="backspace()">⌫</button>
+      <button class="key op" onclick="press('%')">%</button>
+      <button class="key op" onclick="press('/')">÷</button>
+
+      <button class="key" onclick="press('7')">7</button>
+      <button class="key" onclick="press('8')">8</button>
+      <button class="key" onclick="press('9')">9</button>
+      <button class="key op" onclick="press('*')">×</button>
+
+      <button class="key" onclick="press('4')">4</button>
+      <button class="key" onclick="press('5')">5</button>
+      <button class="key" onclick="press('6')">6</button>
+      <button class="key op" onclick="press('-')">−</button>
+
+      <button class="key" onclick="press('1')">1</button>
+      <button class="key" onclick="press('2')">2</button>
+      <button class="key" onclick="press('3')">3</button>
+      <button class="key op" onclick="press('+')">+</button>
+
+      <button class="key zero" onclick="press('0')">0</button>
+      <button class="key" onclick="press('.')">.</button>
+      <button class="key equal" onclick="calculate()">=</button>
+    </div>
+  </div>
+
+<script>
+  let expression = "";
+  const currentEl = document.getElementById('current');
+  const previewEl = document.getElementById('exprPreview');
+
+  function display(text){
+    const shown = text.replace(/\*/g, '×').replace(/\//g, '÷');
+    currentEl.textContent = shown || "0";
+  }
+
+  function press(ch){
+    expression += ch;
+    display(expression);
+  }
+
+  function clearAll(){
+    expression = "";
+    display("");
+    previewEl.textContent = '\u00A0';
+  }
+
+  function backspace(){
+    expression = expression.slice(0, -1);
+    display(expression);
+  }
+
+  // คำนวณด้วย JavaScript ล้วนๆ ไม่ต้องมีเซิร์ฟเวอร์ - อนุญาตเฉพาะตัวเลขและเครื่องหมายคำนวณ
+  function safeCalculate(expr){
+    if(!/^[0-9+\-*/.%\s]+$/.test(expr)){
+      throw new Error("นิพจน์ไม่ถูกต้อง");
+    }
+    const normalized = expr.replace(/%/g, "/100");
+    // eslint-disable-next-line no-new-func
+    return Function('"use strict"; return (' + normalized + ')')();
+  }
+
+  function calculate(){
+    if(!expression) return;
+    try{
+      let result = safeCalculate(expression);
+      if(!isFinite(result)) throw new Error("หารด้วยศูนย์ไม่ได้");
+      result = Math.round(result * 1e10) / 1e10; // ตัดเศษทศนิยมที่คลาดเคลื่อนจากการคำนวณแบบ float
+      previewEl.textContent = expression.replace(/\*/g,'×').replace(/\//g,'÷') + ' =';
+      expression = String(result);
+      display(expression);
+    } catch(e){
+      display("Error");
+      previewEl.textContent = '\u00A0';
+      expression = "";
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if(/[0-9.+\-*/%]/.test(e.key)){ press(e.key); }
+    else if(e.key === 'Enter' || e.key === '='){ calculate(); }
+    else if(e.key === 'Backspace'){ backspace(); }
+    else if(e.key === 'Escape'){ clearAll(); }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เกม XO</title>
+<style>
+  :root{
+    --bg:#f2f2f2;
+    --card-bg:#ffffff;
+    --border:#e0e0e0;
+    --cell-bg:#f5f5f5;
+    --cell-bg-hover:#e8e8e8;
+    --x-color:#ff9500;
+    --o-color:#3b82f6;
+    --text:#1a1a1a;
+    --muted:#999999;
+    --win-bg:#fff3e0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    min-height:100vh;
+    background:var(--bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:-apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+    padding:20px;
+  }
+
+  .card{
+    width:340px;
+    max-width:100%;
+    background:var(--card-bg);
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.12);
+    padding:22px;
+    border:1px solid var(--border);
+  }
+
+  h1{
+    margin:0 0 4px;
+    font-size:20px;
+    font-weight:600;
+    color:var(--text);
+    text-align:center;
+  }
+
+  .status{
+    text-align:center;
+    color:var(--muted);
+    font-size:14px;
+    margin-bottom:18px;
+    min-height:18px;
+  }
+  .status .mark-x{ color:var(--x-color); font-weight:700; }
+  .status .mark-o{ color:var(--o-color); font-weight:700; }
+
+  .board{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
+    margin-bottom:18px;
+  }
+
+  .cell{
+    aspect-ratio:1;
+    background:var(--cell-bg);
+    border:none;
+    border-radius:12px;
+    font-size:40px;
+    font-weight:700;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: background 0.12s ease, transform 0.05s ease;
+  }
+  .cell:hover:not(:disabled){ background:var(--cell-bg-hover); }
+  .cell:active:not(:disabled){ transform: scale(0.96); }
+  .cell:disabled{ cursor:default; }
+  .cell.x{ color:var(--x-color); }
+  .cell.o{ color:var(--o-color); }
+  .cell.win{ background:var(--win-bg); }
+
+  .scoreboard{
+    display:flex;
+    justify-content:space-between;
+    background:var(--cell-bg);
+    border-radius:12px;
+    padding:12px 16px;
+    margin-bottom:16px;
+  }
+  .score-item{
+    text-align:center;
+    flex:1;
+  }
+  .score-label{
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:2px;
+  }
+  .score-value{
+    font-size:20px;
+    font-weight:700;
+    color:var(--text);
+  }
+  .score-item.x .score-value{ color:var(--x-color); }
+  .score-item.o .score-value{ color:var(--o-color); }
+
+  .controls{
+    display:flex;
+    gap:8px;
+  }
+  .btn{
+    flex:1;
+    border:none;
+    border-radius:10px;
+    padding:12px 0;
+    font-size:15px;
+    font-weight:600;
+    font-family:inherit;
+    cursor:pointer;
+    transition: filter 0.1s ease, transform 0.05s ease;
+  }
+  .btn:active{ transform: scale(0.97); }
+  .btn.reset{ background:#d4d4d4; color:var(--text); }
+  .btn.reset:hover{ filter:brightness(0.95); }
+  .btn.new{ background:var(--x-color); color:#ffffff; }
+  .btn.new:hover{ filter:brightness(1.08); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>เกม XO</h1>
+    <div class="status" id="status">ตาของ <span class="mark-x">X</span></div>
+
+    <div class="board" id="board"></div>
+
+    <div class="scoreboard">
+      <div class="score-item x">
+        <div class="score-label">X ชนะ</div>
+        <div class="score-value" id="scoreX">0</div>
+      </div>
+      <div class="score-item">
+        <div class="score-label">เสมอ</div>
+        <div class="score-value" id="scoreDraw">0</div>
+      </div>
+      <div class="score-item o">
+        <div class="score-label">O ชนะ</div>
+        <div class="score-value" id="scoreO">0</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn reset" onclick="resetRound()">เริ่มตาใหม่</button>
+      <button class="btn new" onclick="resetAll()">รีเซ็ตคะแนน</button>
+    </div>
+  </div>
+
+<script>
+  const WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8], // แนวนอน
+    [0,3,6],[1,4,7],[2,5,8], // แนวตั้ง
+    [0,4,8],[2,4,6]          // แนวทแยง
+  ];
+
+  let board = Array(9).fill(null);
+  let currentPlayer = 'X';
+  let gameOver = false;
+  let scores = { X: 0, O: 0, draw: 0 };
+
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const scoreXEl = document.getElementById('scoreX');
+  const scoreOEl = document.getElementById('scoreO');
+  const scoreDrawEl = document.getElementById('scoreDraw');
+
+  function buildBoard(){
+    boardEl.innerHTML = '';
+    board.forEach((val, i) => {
+      const cell = document.createElement('button');
+      cell.className = 'cell';
+      cell.dataset.index = i;
+      cell.disabled = !!val || gameOver;
+      if(val){
+        cell.textContent = val;
+        cell.classList.add(val.toLowerCase());
+      }
+      cell.addEventListener('click', () => handleMove(i));
+      boardEl.appendChild(cell);
+    });
+  }
+
+  function handleMove(index){
+    if(board[index] || gameOver) return;
+    board[index] = currentPlayer;
+
+    const winLine = checkWin(currentPlayer);
+    if(winLine){
+      gameOver = true;
+      buildBoard();
+      highlightWin(winLine);
+      scores[currentPlayer]++;
+      updateScoreboard();
+      statusEl.innerHTML = `<span class="mark-${currentPlayer.toLowerCase()}">${currentPlayer}</span> ชนะ! 🎉`;
+      return;
+    }
+
+    if(board.every(cell => cell)){
+      gameOver = true;
+      buildBoard();
+      scores.draw++;
+      updateScoreboard();
+      statusEl.textContent = 'เสมอ!';
+      return;
+    }
+
+    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+    buildBoard();
+    statusEl.innerHTML = `ตาของ <span class="mark-${currentPlayer.toLowerCase()}">${currentPlayer}</span>`;
+  }
+
+  function checkWin(player){
+    return WIN_LINES.find(line => line.every(i => board[i] === player)) || null;
+  }
+
+  function highlightWin(line){
+    line.forEach(i => {
+      boardEl.children[i].classList.add('win');
+    });
+  }
+
+  function updateScoreboard(){
+    scoreXEl.textContent = scores.X;
+    scoreOEl.textContent = scores.O;
+    scoreDrawEl.textContent = scores.draw;
+  }
+
+  function resetRound(){
+    board = Array(9).fill(null);
+    currentPlayer = 'X';
+    gameOver = false;
+    buildBoard();
+    statusEl.innerHTML = `ตาของ <span class="mark-x">X</span>`;
+  }
+
+  function resetAll(){
+    scores = { X: 0, O: 0, draw: 0 };
+    updateScoreboard();
+    resetRound();
+  }
+
+  buildBoard();
+</script>
+</body>
+</html>
